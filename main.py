@@ -28,16 +28,18 @@ bpos = [0, 0]
 p1y = 0
 score1 = 0
 score2 = 0
+consoleBuffer = ""
 
 ## USER INTERFACE ELEMENTS
 
-def initMenu():
-    global title
-    title = turtle.Turtle()
-    title.hideturtle()
-    title.penup()
-    title.goto(-75, 300)
-    title.write("Pong", move=False, align="left", font=("Arial", 48, "normal"))
+# def initMenu():
+#     global title
+#     title = turtle.Turtle()
+#     title.hideturtle()
+#     title.penup()
+#     title.color("white")
+#     title.goto(-75, 300)
+#     title.write("Pong", move=False, align="left", font=("Arial", 48, "normal"))
 
 ## END USER INTERFACE ELEMENTS
 
@@ -132,10 +134,13 @@ def initGame():
   initPaddles()
   running = True
 
+
 # def initUI():
+#     initScreen()
 #     initMenu()
 # initUI()
-# initGame()
+
+initGame()
 # update the score counters
 def updateScores():
     global running
@@ -187,7 +192,15 @@ def p1stagey(y):
     global p1y
     p1y = y
 
-
+def renderScreen():
+    global p1y
+    moveBall()
+    paddleAi()
+    checkCollision()
+    if (p1y != 0):
+        p1(p1y * 16)
+        p1y = 0
+    wn.update()
 
 # box boundaries
 # x:
@@ -199,7 +212,7 @@ def p1stagey(y):
 def moveBall():
     global umove
     global running
-  
+    consoleLog("moving")
     # generate a new umove if it's blank
     if (umove[0] == 0 and umove[1] == 0):
         umove = genDirection()
@@ -213,7 +226,6 @@ def resetBall():
     
 def paddleAi():
     p2(ExactY=b.ycor())
-    
 
 # function to check if the ball is colliding with something, and functionality to bounce it
 def checkCollision():
@@ -285,13 +297,7 @@ def start():
   # moves the ball and checks collisions every loop
     while running == True:
         global p1y
-        moveBall()
-        paddleAi()
-        checkCollision()
-        if (p1y != 0):
-            p1(p1y * 16)
-            p1y = 0
-        wn.update()
+        renderScreen()
         time.sleep(0.00694444444)
 
 
