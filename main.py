@@ -2,16 +2,22 @@
 import turtle
 import time
 import random
-import asyncio
 
 screenWidth = 800
 screenHeight = 500
 wn = turtle.Screen()
 
 running = False
+menu = True
+currentFrame = -1
+completedFrame = -1
 
 # ui
+uiElementIndex = 1
+selectedUiElement = 1
 title = None
+playButton = None
+instructions = None
 
 # game
 o = None
@@ -21,27 +27,56 @@ p2s = None
 p1score = None
 p2score = None
 
-speed = 3;
 # variables
+speed = 12
+targetFrameRate = 60
 umove = [0, 0]
 bpos = [0, 0]
 p1y = 0
 score1 = 0
 score2 = 0
-consoleBuffer = ""
 
-## USER INTERFACE ELEMENTS
+import turtle
+def initTitle():
+    global title
+    title = turtle.Turtle()
+    title.hideturtle()
+    title.penup()
+    title.color("white")
+    title.goto(-75, 300)
+    title.write("Pong", move=False, align="left", font=("Arial", 48, "normal"))
 
-# def initMenu():
-#     global title
-#     title = turtle.Turtle()
-#     title.hideturtle()
-#     title.penup()
-#     title.color("white")
-#     title.goto(-75, 300)
-#     title.write("Pong", move=False, align="left", font=("Arial", 48, "normal"))
+def drawPlayButton(color):
+  global playButton
+  playButton = turtle.Turtle()
+  playButton.clear()
+  playButton.hideturtle()
+  playButton.penup()
+  playButton.color(color)
+  playButton.goto(-75, 0)
+  playButton.write("Play", move=False, align="left", font=("Arial", 32, "normal"))
 
-## END USER INTERFACE ELEMENTS
+def initInstructions():
+  global instructions
+  instructions = turtle.Turtle()
+  instructions.hideturtle()
+  instructions.penup()
+  instructions.color("white")
+  instructions.goto(-200, -25)
+  instructions.write("Use the arrow keys to select the desired button, then press ENTER.", move=False, align="left", font=("Arial", 16, "normal"))
+
+def gameOver():
+  initMenu()
+
+def initMenu():
+    global menu
+    global running
+    running = False
+    menu = True
+    initScreen()
+    initTitle()
+    initInstructions()
+    drawPlayButton("white")
 
 def initScreen():
   global wn
@@ -50,6 +85,13 @@ def initScreen():
   wn.screensize(screenWidth, screenHeight)
   wn.title("Pong")
   wn.tracer(0, 0)
+
+  wn.onkeypress(lambda: keypress("down"), "Down")
+  wn.onkeypress(lambda: keypress("enter"), "Return")
+  wn.onkeypress(lambda: keypress("up"), "Up")
+  wn.onkeypress(lambda: keypress("esc"), "Escape")
+
+  wn.listen()
 
 # outline the game boundaries
 def initGameBounds():
@@ -82,14 +124,37 @@ def initBall():
   b.shapesize(stretch_wid=1, stretch_len=1)
   b.penup()
 
+def keypress(k):
+  global uiElementIndex
+  global selectedUiElement
+  global running
+  
+  k = k.lower()
+  if(k == "up"):
+    if running == True:
+      p1stagey(1)
+    else:
+      if(selectedUiElement + 1 > uiElementIndex):
+        return
+      selectedUiElement += 1
+  elif(k == "down"):
+    if running == True:
+      p1stagey(-1)
+    else:
+      if(selectedUiElement - 1 < 1):
+        return
+      selectedUiElement -= 1
+  elif(k == "enter"):
+    if running == False:
+      if(selectedUiElement == 1):
+        initGame()
+  elif(k == "esc"):
+    if running == True:
+      running = False
+      initMenu()
+  
 # paddle 1
 def initPaddles():
-  # set listeners for key presses
-  wn.onkeypress(lambda: p1stagey(-1), "Down")
-  wn.onkeypress(lambda: p1stagey(1), "Up")
-  
-  wn.listen()
-
   global p1s
   global p2s
   p1s = turtle.Turtle()
@@ -126,21 +191,22 @@ def initScoreboard():
   p2score.write("0", move=False, align="left", font=("Arial", 48, "normal"))
 
 def initGame():
-  global running
+  global running, menu, score1, score2
+  score1 = 0
+  score2 =0
+  menu = False
   initScreen()
   initGameBounds()
   initScoreboard()
   initBall()
   initPaddles()
+
+  p1(0)
+  p2(0)
+  setBallPos(0,0)
+
   running = True
 
-
-# def initUI():
-#     initScreen()
-#     initMenu()
-# initUI()
-
-initGame()
 # update the score counters
 def updateScores():
     global running
@@ -148,12 +214,8 @@ def updateScores():
     global score2
     p1score.clear()
     p2score.clear()
-    if (score1 > 10):
-        score1 = 0
-        score2 = 0
-    elif (score2 > 10):
-        score1 = 0
-        score2 = 0
+    if (score1 > 10 or score2 > 10):
+        return gameOver()
     p1score.write(str(score1),
                   move=False,
                   align="left",
@@ -192,7 +254,7 @@ def p1stagey(y):
     global p1y
     p1y = y
 
-def renderScreen():
+def renderGame():
     global p1y
     moveBall()
     paddleAi()
@@ -200,7 +262,6 @@ def renderScreen():
     if (p1y != 0):
         p1(p1y * 16)
         p1y = 0
-    wn.update()
 
 # box boundaries
 # x:
@@ -212,12 +273,21 @@ def renderScreen():
 def moveBall():
     global umove
     global running
-    consoleLog("moving")
     # generate a new umove if it's blank
     if (umove[0] == 0 and umove[1] == 0):
         umove = genDirection()
         return moveBall()
     setBallPos(b.xcor() + umove[0] * speed, b.ycor() + umove[1] * speed)
+  # possible ray casting/position prediction
+    # bxcor = b.xcor()
+    # bycor = b.ycor()
+    # preds = []
+    # for i in range(25):
+    #   bxcor += umove[0]
+    #   bycor += umove[1]
+    #   preds.append([bxcor, bycor])
+    # print(f"Ball position: [{b.xcor()},{b.ycor()}]\n")
+    # print(f"20 frames ahead: {preds[20]}\n")
 
 def resetBall():
     global umove
@@ -225,7 +295,7 @@ def resetBall():
     setBallPos(0, 0)      
     
 def paddleAi():
-    p2(ExactY=b.ycor())
+  p2(ExactY=b.ycor())
 
 # function to check if the ball is colliding with something, and functionality to bounce it
 def checkCollision():
@@ -233,7 +303,8 @@ def checkCollision():
     global score1
     global score2
     global umove
-
+    global speed
+  
     pos = [b.xcor(), b.ycor()]
 
     x = pos[0]
@@ -260,16 +331,21 @@ def checkCollision():
     # MAIN PADDLE COLLISIONS (FRONT SIDE)
     elif (propX < p1s.xcor() + 10 and propX > p1s.xcor() - 10
           and propY < p1s.ycor() + 60 and propY > p1s.ycor() - 60):
+        # HIT PADDLE 1 (LEFT)
+        # speed *= 1.1
         umove[0] = -umove[0]
         # PADDLE 1 IS ON THE LEFT, SO VALUES ARE NEGATIVE
         # COLLIDED WITH PADDLE 1
-        # return "x"
+    
     elif (propX < p2s.xcor() + 10 and propX > p2s.xcor() - 10
           and propY > p2s.ycor() - 60 and propY < p2s.ycor() + 60):
+        # HIT PADDLE 2 (RIGHT)
+        # speed *= 1.1
+        umove[0] = -umove[0]
         # PADDLE 2 IS ON THE RIGHT, SO VALUES ARE POSITIVE
         # COLLIDED WITH PADDLE 2
-        umove[0] = -umove[0]
-        # return "x"
+        
+        
 
 # rounds decimal to fifths, to be used to generate a random number from -1,1 including -0.5 and 0.5
 def roundFifths(x, prec=1, base=.5):
@@ -286,19 +362,36 @@ def genDirection():
 
 
 
+lastRunning = None
+
+def renderMenu():
+  global playButton
+  if(selectedUiElement == 1):
+    drawPlayButton("blue")
+  else:
+    drawPlayButton("white")
+  pass
+
 def start():
-    # initGame()
-    while running == True:
-      p1(0)
-      p2(0)
-      setBallPos(0, 0)
-      break
-  # game loop, runs 144 times a second for smooth rendering
-  # moves the ball and checks collisions every loop
-    while running == True:
-        global p1y
-        renderScreen()
-        time.sleep(0.00694444444)
+    global lastRunning, currentFrame, completedFrame, speed
+    initScreen()
+    initMenu()
+
+    while True:
+      # the frame being rendered
+      currentFrame += 1
+      
+      if running == True:
+        renderGame()
+      if menu == True:
+        renderMenu()
+      wn.update()
+
+      # the rendered frame
+      completedFrame = currentFrame
+
+      # render to the target frame rate per second
+      time.sleep(1/targetFrameRate)
 
 
 start()
